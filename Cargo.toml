@@ -1,0 +1,8 @@
+[package]
+name = "cmemo_rust"
+version = "0.1.0"
+authors = ["doberan"]
+edition = "2018"
+
+[dependencies]
+html5ever='*'
