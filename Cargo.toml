@@ -5,4 +5,5 @@ authors = ["doberan"]
 edition = "2018"
 
 [dependencies]
-html5ever='*'
+termion="1"
+clap="2"

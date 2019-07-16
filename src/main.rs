@@ -1,39 +1,76 @@
-trait Display {
-    fn disp();
-}
-struct Menu;
+extern crate clap;
+extern crate cmemo_rust;
+extern crate termion;
 
-impl Display for Menu {
-    fn disp() {
-        let WIDTH = 60;
-        let HEIGHT = 30;
-        for y in 0..HEIGHT {
-            let mut line = if y == 0 {
-                "┏".to_string()
-            } else if y == (HEIGHT - 1) {
-                "┗".to_string()
-            } else {
-                "┃".to_string()
-            };
-            for x in 0..WIDTH {
-                line = if y == 0 || y == (HEIGHT - 1) {
-                    line + "━"
-                } else {
-                    line + " "
-                };
-            }
-            line = if y == 0 {
-                line + "┓"
-            } else if y == (HEIGHT - 1) {
-                line + "┛"
-            } else {
-                line + "┃"
-            };
-            println!("{}", line);
-        }
+pub use cmemo_rust::view::{Display, Menu};
+
+use clap::{App, Arg};
+
+use std::ffi::OsStr;
+use std::io::{stdin, stdout, Write};
+use std::process::Command;
+use std::{fs, path};
+
+use termion::event::{Event, Key};
+use termion::input::TermRead;
+use termion::raw::IntoRawMode;
+use termion::screen::AlternateScreen;
+use termion::{clear, cursor};
+
+fn main() {
+    let matches = App::new("cmemo_rust")
+        .about("doberan memo tool.")
+        .bin_name("cmemo_rust")
+        .arg(Arg::with_name("file"))
+        .get_matches();
+
+    let (_w, _h) = get_window_size();
+    let stdin = stdin();
+    let mut stdout = AlternateScreen::from(stdout().into_raw_mode().unwrap());
+
+    write!(stdout, "{}", clear::All);
+    write!(stdout, "{}", cursor::Goto(1, 1));
+    write!(stdout, "> ");
+    // let mut s = String::new();
+    // stdin.read_line(&mut s).ok();
+    stdout.flush().unwrap();
+    for evt in stdin.events() {
+        let key = evt.unwrap();
+        let _ = match key {
+            Event::Key(Key::Ctrl('c')) => return,
+            Event::Key(Key::Char(n)) => write!(stdout, "{}", n),
+            Event::Key(Key::Left) => write!(stdout, "{}", cursor::Left(1 as u16)),
+            Event::Key(Key::Right) => write!(stdout, "{}", cursor::Right(1 as u16)),
+            Event::Key(n) => write!(stdout, ""),
+            Event::Mouse(n) => write!(stdout, ""),
+            Event::Unsupported(_) => return,
+        };
+        stdout.flush().unwrap();
     }
 }
-fn main() {
-    Menu::disp();
-    let stdin = std::io::stdin();
+
+/// Get application window size
+fn get_window_size() -> (i32, i32) {
+    let output_width = Command::new("tput")
+        .arg("cols")
+        .output()
+        .expect("failed to execute tput");
+
+    let output_height = Command::new("tput")
+        .arg("lines")
+        .output()
+        .expect("failed to execute tput");
+    let mut width_str = std::str::from_utf8(&(output_width.stdout))
+        .unwrap()
+        .to_string();
+    let mut height_str = std::str::from_utf8(&(output_height.stdout))
+        .unwrap()
+        .to_string();
+    width_str.retain(|c| c != '\n');
+    height_str.retain(|c| c != '\n');
+    //    println!("{}, {}", width_str, height_str);
+    (
+        width_str.parse::<i32>().unwrap(),
+        height_str.parse::<i32>().unwrap(),
+    )
 }
