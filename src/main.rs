@@ -1,3 +1,28 @@
+//! # task management tool.
+//!
+//! ## what cmemo_rust
+//! This tool is task management for work.
+//!
+//! ## how cmemo_rust
+//! This tool is working speedly for task management.
+//!
+//! ## for example
+//! ```
+//! > Add copy and paste function
+//! ┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+//! ┃No.┃            task              ┃
+//! ┣━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+//! ┃ 1 ┃ Add copy and paste function  ┃
+//! ┗━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+//!
+//! > /add date -n 1 2019-07-18 09:00-10:00
+//! ┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+//! ┃No.┃            task              ┃  deadline  ┃ start ┃  end  ┃
+//! ┣━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━╋━━━━━━━┫
+//! ┃ 1 ┃ Add copy and paste function  ┃ 2019-07-18 ┃ 09:00 ┃ 10:00 ┃
+//! ┗━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━┻━━━━━━━┛
+//! ```
+//!
 extern crate clap;
 extern crate cmemo_rust;
 extern crate termion;
@@ -16,7 +41,10 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use termion::{clear, cursor};
-
+struct pos {
+    window_x: u16,
+    window_y: u16,
+}
 fn main() {
     let matches = App::new("cmemo_rust")
         .about("doberan memo tool.")
@@ -27,9 +55,12 @@ fn main() {
     let (_w, _h) = get_window_size();
     let stdin = stdin();
     let mut stdout = AlternateScreen::from(stdout().into_raw_mode().unwrap());
-
+    let mut pos = pos {
+        window_x: 1,
+        window_y: 1,
+    };
     write!(stdout, "{}", clear::All);
-    write!(stdout, "{}", cursor::Goto(1, 1));
+    write!(stdout, "{}", cursor::Goto(pos.window_x, pos.window_y));
     write!(stdout, "> ");
     // let mut s = String::new();
     // stdin.read_line(&mut s).ok();
@@ -38,11 +69,26 @@ fn main() {
         let key = evt.unwrap();
         let _ = match key {
             Event::Key(Key::Ctrl('c')) => return,
-            Event::Key(Key::Char(n)) => write!(stdout, "{}", n),
-            Event::Key(Key::Left) => write!(stdout, "{}", cursor::Left(1 as u16)),
-            Event::Key(Key::Right) => write!(stdout, "{}", cursor::Right(1 as u16)),
-            Event::Key(n) => write!(stdout, ""),
-            Event::Mouse(n) => write!(stdout, ""),
+            Event::Key(Key::Char('\n')) => {
+                pos.window_x = 1;
+                pos.window_y += 1;
+                write!(stdout, "\n");
+                write!(stdout, "{}", cursor::Goto(pos.window_x, pos.window_y));
+            }
+            Event::Key(Key::Char(n)) => {
+                pos.window_x += 1;
+                write!(stdout, "{}", n);
+            }
+            Event::Key(Key::Left) => {
+                pos.window_x += 1;
+                write!(stdout, "{}", cursor::Left(1 as u16));
+            }
+            Event::Key(Key::Right) => {
+                pos.window_x -= 1;
+                write!(stdout, "{}", cursor::Right(1 as u16));
+            }
+            Event::Key(_) => {}
+            Event::Mouse(_) => {}
             Event::Unsupported(_) => return,
         };
         stdout.flush().unwrap();
