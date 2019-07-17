@@ -1,38 +1,19 @@
-//! # task management tool.
-//!
-//! ## what cmemo_rust
-//! This tool is task management for work.
-//!
-//! ## how cmemo_rust
-//! This tool is working speedly for task management.
-//!
-//! ## for example
-//! ```
-//! > Add copy and paste function
-//! ┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-//! ┃No.┃            task              ┃
-//! ┣━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-//! ┃ 1 ┃ Add copy and paste function  ┃
-//! ┗━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-//!
-//! > /add date -n 1 2019-07-18 09:00-10:00
-//! ┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┓
-//! ┃No.┃            task              ┃  deadline  ┃ start ┃  end  ┃
-//! ┣━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━╋━━━━━━━┫
-//! ┃ 1 ┃ Add copy and paste function  ┃ 2019-07-18 ┃ 09:00 ┃ 10:00 ┃
-//! ┗━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━┻━━━━━━━┛
-//! ```
-//!
+//! main logic
+
 extern crate clap;
 extern crate cmemo_rust;
 extern crate termion;
 
-pub use cmemo_rust::view::{Display, Menu};
+pub use cmemo_rust::view::{
+    Display, 
+    Menu, 
+    Window
+};
 
 use clap::{App, Arg};
 
 use std::ffi::OsStr;
-use std::io::{stdin, stdout, Write};
+pub use std::io::{stdin, stdout, Write};
 use std::process::Command;
 use std::{fs, path};
 
@@ -41,50 +22,47 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use termion::{clear, cursor};
-struct pos {
-    window_x: u16,
-    window_y: u16,
-}
+
 fn main() {
     let matches = App::new("cmemo_rust")
         .about("doberan memo tool.")
         .bin_name("cmemo_rust")
         .arg(Arg::with_name("file"))
         .get_matches();
-
-    let (_w, _h) = get_window_size();
+    let mut window = Window::new();
     let stdin = stdin();
-    let mut stdout = AlternateScreen::from(stdout().into_raw_mode().unwrap());
-    let mut pos = pos {
-        window_x: 1,
-        window_y: 1,
-    };
-    write!(stdout, "{}", clear::All);
-    write!(stdout, "{}", cursor::Goto(pos.window_x, pos.window_y));
-    write!(stdout, "> ");
-    // let mut s = String::new();
-    // stdin.read_line(&mut s).ok();
-    stdout.flush().unwrap();
+    let mut stdout = AlternateScreen::from(
+        stdout().into_raw_mode().unwrap());
+        // println!("{:?}", stdout);
+    clear(&mut stdout);
+    setup(&mut window, &mut stdout);
+    invalidate(&mut stdout);
+    let mut arg: Vec<u8> = vec![];
     for evt in stdin.events() {
         let key = evt.unwrap();
         let _ = match key {
             Event::Key(Key::Ctrl('c')) => return,
             Event::Key(Key::Char('\n')) => {
-                pos.window_x = 1;
-                pos.window_y += 1;
-                write!(stdout, "\n");
-                write!(stdout, "{}", cursor::Goto(pos.window_x, pos.window_y));
+                window.cursor_x = 1u16;
+                window.cursor_y = 1u16;
+                clear(&mut stdout);
+                invalidate(&mut stdout);
+                write!(stdout, "{}", cursor::Goto(1, 2));
+                write!(stdout, "{}", std::str::from_utf8(&arg).unwrap().to_string());
+                setup(&mut window, &mut stdout);
+                invalidate(&mut stdout);
             }
             Event::Key(Key::Char(n)) => {
-                pos.window_x += 1;
+                window.cursor_x += 1;
+                arg.push(n as u8);
                 write!(stdout, "{}", n);
             }
             Event::Key(Key::Left) => {
-                pos.window_x += 1;
+                window.cursor_x += 1;
                 write!(stdout, "{}", cursor::Left(1 as u16));
             }
             Event::Key(Key::Right) => {
-                pos.window_x -= 1;
+                window.cursor_x -= 1;
                 write!(stdout, "{}", cursor::Right(1 as u16));
             }
             Event::Key(_) => {}
@@ -95,28 +73,16 @@ fn main() {
     }
 }
 
-/// Get application window size
-fn get_window_size() -> (i32, i32) {
-    let output_width = Command::new("tput")
-        .arg("cols")
-        .output()
-        .expect("failed to execute tput");
+fn setup(window: &mut Window, stdout: &mut AlternateScreen<termion::raw::RawTerminal<std::io::Stdout>>) {
+    write!(*stdout, "{}", cursor::Goto(
+        (*window).cursor_x, (*window).cursor_y));
+    write!(*stdout, "> ");
+}
 
-    let output_height = Command::new("tput")
-        .arg("lines")
-        .output()
-        .expect("failed to execute tput");
-    let mut width_str = std::str::from_utf8(&(output_width.stdout))
-        .unwrap()
-        .to_string();
-    let mut height_str = std::str::from_utf8(&(output_height.stdout))
-        .unwrap()
-        .to_string();
-    width_str.retain(|c| c != '\n');
-    height_str.retain(|c| c != '\n');
-    //    println!("{}, {}", width_str, height_str);
-    (
-        width_str.parse::<i32>().unwrap(),
-        height_str.parse::<i32>().unwrap(),
-    )
+fn clear(stdout: &mut AlternateScreen<termion::raw::RawTerminal<std::io::Stdout>>) {
+    write!(*stdout, "{}", clear::All);
+}
+
+fn invalidate(stdout: &mut AlternateScreen<termion::raw::RawTerminal<std::io::Stdout>>) {
+    (*stdout).flush().unwrap();
 }
